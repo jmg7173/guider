@@ -51,6 +51,7 @@ class ConfigManager(object):
     """ Manager for configuration """
 
     # Define logo #
+    # made by http://www.figlet.org #
     logo = '''
                 _      _
    __ _  _   _ (_)  __| |  ___  _ __
@@ -7343,7 +7344,7 @@ class SystemManager(object):
 
     startTime = time.time()
     blockSize = 512
-    bufferSize = 0
+    bufferSize = -1
     termGetId = None
     termSetId = None
     ttyRows = 43
@@ -7495,6 +7496,7 @@ class SystemManager(object):
     vssEnable = False
     leakEnable = False
     wssEnable = False
+    diskEnable = False
     heapEnable = False
     floatEnable = False
     fileTopEnable = False
@@ -8270,7 +8272,8 @@ class SystemManager(object):
             options.rfind('a') >= 0 or options.rfind('I') >= 0 or \
             options.rfind('f') >= 0 or options.rfind('F') >= 0 or \
             options.rfind('w') >= 0 or options.rfind('W') >= 0 or \
-            options.rfind('r') >= 0 or options.rfind('R') >= 0:
+            options.rfind('r') >= 0 or options.rfind('R') >= 0 or \
+            options.rfind('d') >= 0:
             return True
         else:
             return False
@@ -8345,7 +8348,8 @@ class SystemManager(object):
             err = sys.exc_info()[1]
             SystemManager.printWarning(\
                 "Fail to write json data to %s because %s" % \
-                (SystemManager.reportPath, ' '.join(list(map(str, err.args)))), True)
+                (SystemManager.reportPath, \
+                ' '.join(list(map(str, err.args)))), True)
             sys.exit(0)
 
 
@@ -8471,35 +8475,47 @@ class SystemManager(object):
                 pipePrint('\nMode:')
                 pipePrint('')
                 pipePrint('    [analysis]')
-                pipePrint('        top        [realtime]')
-                pipePrint('        threadtop  [thread]')
-                pipePrint('        filetop    [file]')
-                pipePrint('        stacktop   [stack]')
-                pipePrint('        perftop    [PMU]')
-                pipePrint('        memtop     [memory]')
+                pipePrint('        top         [realtime]')
+                pipePrint('        threadtop   [thread]')
+                pipePrint('        filetop     [file]')
+                pipePrint('        stacktop    [stack]')
+                pipePrint('        perftop     [PMU]')
+                pipePrint('        memtop      [memory]')
+                pipePrint('        disktop     [storage]')
+                pipePrint('        wsstop      [WSS]')
                 pipePrint('')
-                pipePrint('        record     [thread]')
-                pipePrint('        record -y  [system]')
-                pipePrint('        record -f  [function]')
-                pipePrint('        record -F  [file]')
-                pipePrint('        mem        [page]')
+                pipePrint('        record      [thread]')
+                pipePrint('        record -y   [system]')
+                pipePrint('        record -f   [function]')
+                pipePrint('        record -F   [file]')
                 pipePrint('')
-                pipePrint('        draw       [image]')
-                pipePrint('        cpudraw    [cpu]')
-                pipePrint('        memdraw    [memory]')
-                pipePrint('        vssdraw    [vss]')
-                pipePrint('        rssdraw    [rss]')
-                pipePrint('        leakdraw   [leak]')
-                pipePrint('        iodraw     [io]')
+                pipePrint('        mem         [page]')
+                pipePrint('')
+                pipePrint('        strace      [syscall]')
+                pipePrint('')
+                pipePrint('        draw        [image]')
+                pipePrint('        cpudraw     [cpu]')
+                pipePrint('        memdraw     [memory]')
+                pipePrint('        vssdraw     [vss]')
+                pipePrint('        rssdraw     [rss]')
+                pipePrint('        leakdraw    [leak]')
+                pipePrint('        iodraw      [io]')
                 pipePrint('')
                 pipePrint('    [control]')
-                pipePrint('        kill|setsched|get/setaffinity|cpulimit [proc]')
-                pipePrint('')
-                pipePrint('    [communication]')
-                pipePrint('        list|start|stop|send|event [proc]')
+                pipePrint('        kill        [signal]')
+                pipePrint('        setsched    [priority]')
+                pipePrint('        getaffinity [affinity]')
+                pipePrint('        setaffinity [affinity]')
+                pipePrint('        cpulimit    [cpu]')
                 pipePrint('')
                 pipePrint('    [test]')
-                pipePrint('        alloctest')
+                pipePrint('        alloctest   [mem]')
+                pipePrint('')
+                pipePrint('    [communication]')
+                pipePrint('        list')
+                pipePrint('        start')
+                pipePrint('        send')
+                pipePrint('        event')
 
                 pipePrint('')
                 pipePrint('Options:')
@@ -8512,10 +8528,10 @@ class SystemManager(object):
                                                  '{i(rq)|l(ock)|n(et)|p(ipe)|'\
                     '\n                          P(ower)|r(eset)|g(raph)}')
                 pipePrint('              [top]      '\
-                                                 '{t(hread)|wf(C)|s(tack)|w(ss)|'\
-                    '\n                          P(erf)|G(pu)|i(rq)|ps(S)|u(ss)|'
+                                                 '{t(hread)|wf(C)|s(tack)|w(ss)|d(isk)|'\
+                    '\n                          P(erf)|G(pu)|i(rq)|ps(S)|u(ss)|W(chan)|'
                     '\n                          I(mage)|a(ffinity)|r(eport)|a(ffinity)|'\
-                    '\n                          W(chan)|h(andler)|f(loat)|R(file)}')
+                    '\n                          h(andler)|f(loat)|R(file)}')
                 pipePrint('        -d  [disable_optionsPerMode - belowCharacters]')
                 pipePrint('              [common]   {c(pu)|e(ncoding)}')
                 pipePrint('              [thread]   {a(ll)}')
@@ -8736,8 +8752,11 @@ class SystemManager(object):
             pipePrint('\n    - show resource usage of processes and excute special commands every interval')
             pipePrint('        # %s top -w AFTER:/tmp/touched:1, AFTER:ls' % cmd)
 
+            pipePrint('\n    - show storage usage in real-time')
+            pipePrint('        # %s disktop' % cmd)
+
             pipePrint('\n    - trace memory working set of specific processes')
-            pipePrint('        # %s top -e w -g chrome' % cmd)
+            pipePrint('        # %s wsstop -g chrome' % cmd)
 
             pipePrint('\n    - draw graph and chart to specific files')
             pipePrint('        # %s draw guider.out' % cmd)
@@ -10432,7 +10451,7 @@ class SystemManager(object):
 
 
     @staticmethod
-    def printRecordCmd():
+    def printProfileCmd():
         for idx, val in SystemManager.rcmdList.items():
             if len(val) == 0:
                 continue
@@ -10446,7 +10465,7 @@ class SystemManager(object):
 
 
     @staticmethod
-    def printRecordOption():
+    def printProfileOption():
         enableStat = ''
         disableStat = ''
 
@@ -10503,6 +10522,11 @@ class SystemManager(object):
                     enableStat += 'IRQ '
                 else:
                     disableStat += 'IRQ '
+
+                if SystemManager.diskEnable:
+                    enableStat += 'DISK '
+                else:
+                    disableStat += 'DISK '
 
                 if SystemManager.perfGroupEnable:
                     enableStat += 'PERF '
@@ -11758,7 +11782,7 @@ class SystemManager(object):
             SystemManager.procBufferSize += len(SystemManager.bufferString)
             SystemManager.clearPrint()
 
-            while SystemManager.procBufferSize > SystemManager.bufferSize:
+            while SystemManager.procBufferSize > SystemManager.bufferSize > 0:
                 if len(SystemManager.procBuffer) == 1:
                     break
                 SystemManager.procBufferSize -= len(SystemManager.procBuffer[-1])
@@ -11790,11 +11814,11 @@ class SystemManager(object):
             retstr = ''
 
         # pager initialization #
-        if SystemManager.pipeForPrint == None and \
-            SystemManager.selectMenu == None and \
+        if SystemManager.isTopMode() is False and \
+            SystemManager.pipeForPrint == None and \
             SystemManager.printFile == None and \
             SystemManager.printStreamEnable is False and \
-            SystemManager.isTopMode() is False:
+            SystemManager.selectMenu == None:
             try:
                 if sys.platform.startswith('linux'):
                     SystemManager.pipeForPrint = os.popen('less', 'w')
@@ -11804,7 +11828,8 @@ class SystemManager(object):
                     pass
             except:
                 SystemManager.printError(\
-                    "Fail to find pager, use -o option to save output into file\n")
+                    "Fail to find pager, "
+                    "use -o option to save output into file\n")
                 sys.exit(0)
 
         # pager output #
@@ -12139,13 +12164,15 @@ class SystemManager(object):
 
                     if SystemManager.intervalEnable <= 0:
                         SystemManager.printError(\
-                            "wrong option value with -i option, input number bigger than 0")
+                            "wrong option value with -i option, "
+                            "input number bigger than 0")
                         sys.exit(0)
                 except SystemExit:
                     sys.exit(0)
                 except:
                     SystemManager.printError(\
-                        "wrong option value with -i option, input number in integer format")
+                        "wrong option value with -i option, "
+                        "input number in integer format")
                     sys.exit(0)
 
             elif option == 'o':
@@ -12201,11 +12228,11 @@ class SystemManager(object):
             elif option == 'p' and SystemManager.isTopMode() is False:
                 if SystemManager.findOption('i'):
                     SystemManager.printError(\
-                        "wrong option with -p, -i option is already enabled")
+                        "wrong option with -p, -i option is already used")
                     sys.exit(0)
                 elif SystemManager.findOption('g'):
                     SystemManager.printError(\
-                        "wrong option with -p, -g option is already enabled")
+                        "wrong option with -p, -g option is already used")
                     sys.exit(0)
                 else:
                     SystemManager.preemptGroup = value.split(',')
@@ -12298,7 +12325,7 @@ class SystemManager(object):
                         SystemManager.printError(\
                             "Fail to get root permission to analyze block I/O")
                         sys.exit(0)
-                    elif os.path.isfile('%s/1/io' % procPath) is False:
+                    elif os.path.isfile('%s/self/io' % procPath) is False:
                         SystemManager.printError((\
                             "Fail to use bio event, "
                             "please check kernel configuration"))
@@ -12373,18 +12400,12 @@ class SystemManager(object):
                         sys.exit(0)
 
                 if options.rfind('w') > -1:
-                    if SystemManager.findOption('g') is False:
-                        SystemManager.printError(\
-                            "wrong option with -e + w, "
-                            "use also -g option to track memory working set")
+                    if SystemManager.checkWssTopCond():
+                        SystemManager.memEnable = True
+                        SystemManager.wssEnable = True
+                        SystemManager.sort = 'm'
+                    else:
                         sys.exit(0)
-                    elif SystemManager.isRoot() is False:
-                        SystemManager.printError(\
-                            "Fail to get root permission to clear refcnts")
-                        sys.exit(0)
-                    SystemManager.memEnable = True
-                    SystemManager.wssEnable = True
-                    SystemManager.sort = 'm'
 
                 if options.rfind('P') > -1:
                     if SystemManager.checkPerfTopCond():
@@ -12395,6 +12416,9 @@ class SystemManager(object):
                 if options.rfind('r') > -1:
                     SystemManager.importJson()
                     SystemManager.reportEnable = True
+
+                if options.rfind('d') > -1:
+                    SystemManager.diskEnable = True
 
                 if SystemManager.isEffectiveEnableOption(options) is False:
                     SystemManager.printError(\
@@ -12490,11 +12514,15 @@ class SystemManager(object):
             elif option == 'b':
                 try:
                     bsize = int(value)
-                    if bsize > 0:
+                    if bsize >= 0:
                         SystemManager.bufferSize = str(value)
 
-                        SystemManager.printInfo(\
-                            "set buffer size to %sKB" % bsize)
+                        if bsize == 0:
+                            SystemManager.printInfo(\
+                                "set buffer size to unlimited")
+                        else:
+                            SystemManager.printInfo(\
+                                "set buffer size to %sKB" % bsize)
                     else:
                         SystemManager.printError(\
                             "wrong option value with -b option, "
@@ -13168,6 +13196,15 @@ class SystemManager(object):
 
 
     @staticmethod
+    def isStraceMode():
+        if sys.argv[1] == 'strace':
+            return True
+        else:
+            return False
+
+
+
+    @staticmethod
     def isSetAffinityMode():
         if sys.argv[1] == 'setaffinity':
             return True
@@ -13213,6 +13250,24 @@ class SystemManager(object):
 
 
     @staticmethod
+    def isWssTopMode():
+        if sys.argv[1] == 'wsstop':
+            return True
+        else:
+            return False
+
+
+
+    @staticmethod
+    def isDiskTopMode():
+        if sys.argv[1] == 'disktop':
+            return True
+        else:
+            return False
+
+
+
+    @staticmethod
     def isStackTopMode():
         if sys.argv[1] == 'stacktop':
             return True
@@ -13243,15 +13298,13 @@ class SystemManager(object):
     def isTopMode():
         if sys.argv[1] == 'top':
             return True
-        elif SystemManager.isFileTopMode():
-            return True
-        elif SystemManager.isThreadTopMode():
-            return True
-        elif SystemManager.isStackTopMode():
-            return True
-        elif SystemManager.isPerfTopMode():
-            return True
-        elif SystemManager.isMemTopMode():
+        elif SystemManager.isFileTopMode() or \
+            SystemManager.isThreadTopMode() or \
+            SystemManager.isStackTopMode() or \
+            SystemManager.isPerfTopMode() or \
+            SystemManager.isMemTopMode() or \
+            SystemManager.isWssTopMode() or \
+            SystemManager.isDiskTopMode():
             return True
         else:
             return False
@@ -13331,6 +13384,10 @@ class SystemManager(object):
         # SETSCHED MODE #
         if SystemManager.isSetSchedMode():
             SystemManager.doSetSched()
+
+        # STRACE MODE #
+        if SystemManager.isStraceMode():
+            SystemManager.doStrace()
 
         # AFFINITY MODE #
         if SystemManager.isSetAffinityMode():
@@ -13461,7 +13518,7 @@ class SystemManager(object):
             return False
         elif SystemManager.findOption('g') is False:
             SystemManager.printError(\
-                "wrong option with -e + P, "
+                "wrong option for PMP monitoring, "
                 "use also -g option to show performance stat")
             return False
         elif os.path.isfile('%s/sys/kernel/perf_event_paranoid' % \
@@ -13486,6 +13543,22 @@ class SystemManager(object):
 
 
     @staticmethod
+    def checkWssTopCond():
+        if SystemManager.findOption('g') is False:
+            SystemManager.printError(\
+                "wrong option for wss monitoring, "
+                "use also -g option to track memory working set")
+            return False
+        elif SystemManager.isRoot() is False:
+            SystemManager.printError(\
+                "Fail to get root permission to clear refcnts")
+            return False
+        else:
+            return True
+
+
+
+    @staticmethod
     def checkStackTopCond():
         if SystemManager.isRoot() is False:
             SystemManager.printError(\
@@ -13494,7 +13567,8 @@ class SystemManager(object):
         elif SystemManager.findOption('g') is False or \
             SystemManager.getOption('g') is None:
             SystemManager.printError(\
-                "wrong option with -e + s, use also -g option to show stacks")
+                "wrong option stack monitoring, "
+                "use also -g option to show stacks")
             return False
         elif os.path.isfile('%s/self/stack' % SystemManager.procPath) is False:
             SystemManager.printError(\
@@ -14527,6 +14601,35 @@ class SystemManager(object):
             value = value.replace('-P', '').replace(' ', '')
 
         SystemManager.parsePriorityOption(value, isProcess)
+
+        sys.exit(0)
+
+
+
+    @staticmethod
+    def doStrace():
+        # parse options #
+        SystemManager.parseAnalOption()
+
+        # no use pager #
+        SystemManager.printStreamEnable = True
+
+        # check tid #
+        if len(SystemManager.filterGroup) == 0:
+            SystemManager.printError("No tid with -g option")
+            sys.exit(0)
+        elif len(SystemManager.filterGroup) > 1:
+            SystemManager.printError(\
+                "wrong option wigh -g, input only one tid")
+            sys.exit(0)
+        elif SystemManager.filterGroup[0].isdigit() is False:
+            SystemManager.printError(\
+                "wrong option wigh -g, input tid in integer format")
+            sys.exit(0)
+        else:
+            pid = int(SystemManager.filterGroup[0])
+
+        Debugger(pid=pid).strace()
 
         sys.exit(0)
 
@@ -15794,7 +15897,7 @@ class SystemManager(object):
             sys.exit(0)
 
         # set size of trace buffer per core #
-        if SystemManager.bufferSize == 0:
+        if SystemManager.bufferSize == -1:
             SystemManager.bufferSize = '40960' # 40MB #
         else:
             # Change from integer to string #
@@ -16669,7 +16772,8 @@ class SystemManager(object):
         storageData = {}
         init_storageData = \
             {'total': long(0), 'free': long(0), 'favail': long(0), \
-            'read': long(0), 'write': long(0), 'usage': long(0), 'mount': None}
+            'read': long(0), 'write': long(0), 'usage': long(0), \
+            'usageper': long(0), 'mount': None}
 
         storageData['total'] = dict(init_storageData)
         storageData['total']['mount'] = {}
@@ -16721,12 +16825,13 @@ class SystemManager(object):
                 total = (stat.f_bsize * stat.f_blocks) >> 20
                 free = (stat.f_bsize * stat.f_bavail) >> 20
                 avail = stat.f_favail
-                usage = '%d' % int((total - free) / float(total) * 100)
+                usage = int((total - free) / float(total) * 100)
 
                 storageData[key]['total'] = total
                 storageData[key]['free'] = free
+                storageData[key]['usage'] = total - free
+                storageData[key]['usageper'] = usage
                 storageData[key]['favail'] = avail
-                storageData[key]['usage'] = usage
 
                 storageData['total']['total'] += total
                 storageData['total']['free'] += free
@@ -16734,10 +16839,13 @@ class SystemManager(object):
             except:
                 pass
 
+        # set total storage stat #
         try:
             total = storageData['total']
             storageData['total']['usage'] = \
-                '%d' % int((total['total'] - total['free']) / \
+                total['total'] - total['free']
+            storageData['total']['usageper'] = \
+                int((total['total'] - total['free']) / \
                 float(total['total']) * 100)
         except:
             pass
@@ -19060,6 +19168,14 @@ class Debugger(object):
 
 
 
+    def getNrSyscall(self):
+        try:
+            return self.regs.getdict()[self.sysreg]
+        except:
+            return None
+
+
+
     def processSyscall(self):
         sysreg = self.sysreg
         retreg = self.retreg
@@ -19142,8 +19258,13 @@ class Debugger(object):
             ret = self.ptrace(cmd, 0, 0)
 
             try:
-                ret = os.waitpid(pid, 0)
+                # wait process #
+                ret = os.waitpid(int(pid), 0)
+
+                # get status of process #
                 stat = Debugger.processStatus(ret[1])
+
+                # check status of process #
                 if type(stat) is int:
                     if stat == sigTrapIdx:
                         pass
@@ -19165,13 +19286,25 @@ class Debugger(object):
                         "Fail to trace syscall of thread %d" % pid)
                     return
 
+                # filter syscall #
+                if len(SystemManager.syscallList) > 0:
+                    if self.getNrSyscall() not in SystemManager.syscallList:
+                        continue
+
                 # process syscall #
                 self.processSyscall()
+
             except OSError:
-                SystemManager.printWarning('No thread %s to trace' % pid)
+                SystemManager.printError('No thread %s to trace' % pid)
                 break
+
             except:
-                SystemManager.printWarning('Terminated thread %s to trace' % pid)
+                err = sys.exc_info()[1]
+                ereason = ' '.join(list(map(str, err.args)))
+                if ereason != '0':
+                    SystemManager.printError(\
+                        'Terminated tracing thread %s because %s' % \
+                        (pid, ereason, True))
                 break
 
 
@@ -19394,8 +19527,11 @@ class ThreadAnalyzer(object):
         'block' : {
             'ioWait' : 10
         },
+        'storage' : {
+            'total' : 99
+        },
         'task' : {
-            'nrCtx' : 5000
+            'nrCtx' : 20000
         }
     }
 
@@ -19522,6 +19658,8 @@ class ThreadAnalyzer(object):
             self.nrFd = 0
             self.procData = {}
             self.prevProcData = {}
+            self.storageData = {}
+            self.prevStorageData = {}
             self.fileData = {}
             self.cpuData = {}
             self.prevCpuData = {}
@@ -19607,7 +19745,7 @@ class ThreadAnalyzer(object):
             self.getConf()
 
             # set log buffer size #
-            if SystemManager.bufferSize == 0:
+            if SystemManager.bufferSize == -1:
                 # 512KB #
                 SystemManager.bufferSize = 512 << 10
             else:
@@ -20779,7 +20917,7 @@ class ThreadAnalyzer(object):
             # CPU usage of processes #
             for idx, item in sorted(\
                 cpuProcUsage.items(), \
-                key=lambda e: e[1]['average'], reverse=False):
+                key=lambda e: e[1]['average'], reverse=True):
 
                 if SystemManager.cpuEnable is False:
                     break
@@ -20839,7 +20977,8 @@ class ThreadAnalyzer(object):
             '''
 
             if SystemManager.matplotlibVersion >= 1.2:
-                legend(labelList, bbox_to_anchor=(1.12, 1.05), fontsize=3.5, loc='upper right')
+                legend(labelList, bbox_to_anchor=(1.12, 1.05), \
+                    fontsize=3.5, loc='upper right')
             else:
                 legend(labelList, bbox_to_anchor=(1.12, 1.05), loc='upper right')
 
@@ -21160,6 +21299,14 @@ class ThreadAnalyzer(object):
                 ytickLabel = \
                     [SystemManager.convertSize(val << 10) for val in ytickLabel]
 
+                # remove redundant ticks #
+                lastTick = ''
+                tempLabelList = list(ytickLabel)
+                for idx, ytick in enumerate(tempLabelList):
+                    if lastTick == ytick:
+                        ytickLabel[idx] = ''
+                    else:
+                        lastTick = ytick
                 ax.set_yticklabels(ytickLabel)
 
                 # hide yticks #
@@ -21202,7 +21349,8 @@ class ThreadAnalyzer(object):
                     text(timeline[-1], usage[-1], \
                         SystemManager.convertSize(usage[-1] << 20), \
                         fontsize=5, color='blue', fontweight='bold')
-                plot(timeline, usage, '-', c='blue', linewidth=2, solid_capstyle='round')
+                plot(timeline, usage, '-', c='blue', \
+                    linewidth=2, solid_capstyle='round')
                 if totalRAM is not None:
                     label = 'RAM Total [%s]\nRAM Free' % \
                         SystemManager.convertSize(long(totalRAM) << 20)
@@ -21229,7 +21377,8 @@ class ThreadAnalyzer(object):
                         text(timeline[-1], usage[-1], \
                             SystemManager.convertSize(usage[-1] << 20), \
                             fontsize=5, color='skyblue', fontweight='bold')
-                    plot(timeline, usage, '-', c='skyblue', linewidth=2, solid_capstyle='round')
+                    plot(timeline, usage, '-', c='skyblue', \
+                        linewidth=2, solid_capstyle='round')
                     labelList.append('RAM User')
 
                 # System Cache Memory #
@@ -21251,7 +21400,8 @@ class ThreadAnalyzer(object):
                         text(timeline[-1], usage[-1], \
                             SystemManager.convertSize(usage[-1] << 20), \
                             fontsize=5, color='darkgray', fontweight='bold')
-                    plot(timeline, usage, '-', c='darkgray', linewidth=2, solid_capstyle='round')
+                    plot(timeline, usage, '-', c='darkgray', \
+                        linewidth=2, solid_capstyle='round')
                     labelList.append('RAM Cache')
 
                 # System Swap Memory #
@@ -21273,13 +21423,15 @@ class ThreadAnalyzer(object):
                         text(timeline[-1], usage[-1], \
                             SystemManager.convertSize(usage[-1] << 20), \
                             fontsize=5, color='orange', fontweight='bold')
-                    plot(timeline, swapUsage, '-', c='orange', linewidth=2, solid_capstyle='round')
+                    plot(timeline, swapUsage, '-', c='orange', \
+                        linewidth=2, solid_capstyle='round')
                     if totalSwap is not None:
                         label = 'Swap Total [%s]\nSwap Usage' % \
                             SystemManager.convertSize(long(totalSwap) << 20)
                         labelList.append(label)
                     else:
                         labelList.append('Swap Usage')
+
             # PROCESS STAT #
             else:
                 # get margin #
@@ -21291,8 +21443,9 @@ class ThreadAnalyzer(object):
 
                 # Process VSS #
                 if SystemManager.vssEnable:
-                    for key, item in sorted(memProcUsage.items(),\
-                        key=lambda e: 0 if not 'maxVss' in e[1] else e[1]['maxVss'], reverse=True):
+                    for key, item in sorted(memProcUsage.items(), \
+                        key=lambda e: 0 if not 'maxVss' in e[1] else e[1]['maxVss'], \
+                        reverse=True):
                         usage = list(map(int, item['vssUsage'].split()))
 
                         try:
@@ -21324,12 +21477,15 @@ class ThreadAnalyzer(object):
                                     SystemManager.convertSize(usage[-1] << 20), key), \
                                     color=color, fontsize=3)
                             labelList.append('%s [VSS]' % key)
+
                 # Process Leak #
                 elif SystemManager.leakEnable:
                     # get VSS diffs #
-                    for key, item in sorted(memProcUsage.items(),\
-                        key=lambda e: 0 if not 'maxVss' in e[1] else e[1]['maxVss'], reverse=True):
+                    for key, item in sorted(memProcUsage.items(), \
+                        key=lambda e: 0 if not 'maxVss' in e[1] else e[1]['maxVss'], \
+                        reverse=True):
                         usage = list(map(int, item['vssUsage'].split()))
+                        # get maximum value #
                         try:
                             maxVss = max(usage)
                         except:
@@ -21339,6 +21495,17 @@ class ThreadAnalyzer(object):
                             item['vssDiff'] = 0
                             continue
 
+                        # get index of maximum and minimum values greater than 0 #
+                        try:
+                            first = next(val for val in usage if val > 0)
+                            last = next(val for val in reversed(usage) if val > 0)
+                            if long(first) > long(last):
+                                item['vssDiff'] = 0
+                                continue
+                        except:
+                            pass
+
+                        # get minimum value #
                         try:
                             minVss = min(x for x in usage if x != 0)
                         except:
@@ -21357,11 +21524,13 @@ class ThreadAnalyzer(object):
 
                         usage = list(map(int, item['vssUsage'].split()))
 
+                        # get minimum value #
                         try:
                             minIdx = usage.index(min(usage))
                         except:
                             minIdx = 0
 
+                        # get maximum value #
                         try:
                             maxIdx = usage.index(item['maxVss'])
                         except:
@@ -21382,11 +21551,13 @@ class ThreadAnalyzer(object):
                                     SystemManager.convertSize(usage[maxIdx] << 20), \
                                     SystemManager.convertSize(item['vssDiff'] << 20), key), \
                                     color=color, fontsize=3)
-                            labelList.append('%s [VSS]' % key)
+                            labelList.append('%s [LEAK]' % key)
+
                 # Process RSS #
                 if SystemManager.rssEnable:
-                    for key, item in sorted(memProcUsage.items(),\
-                        key=lambda e: 0 if not 'maxRss' in e[1] else e[1]['maxRss'], reverse=True):
+                    for key, item in sorted(memProcUsage.items(), \
+                        key=lambda e: 0 if not 'maxRss' in e[1] else e[1]['maxRss'], \
+                        reverse=True):
                         try:
                             usage = list(map(int, item['rssUsage'].split()))
                         except:
@@ -21429,7 +21600,8 @@ class ThreadAnalyzer(object):
             '''
 
             if SystemManager.matplotlibVersion >= 1.2:
-                legend(labelList, bbox_to_anchor=(1.12, 0.75), fontsize=3.5, loc='upper right')
+                legend(labelList, bbox_to_anchor=(1.12, 0.75), \
+                    fontsize=3.5, loc='upper right')
             else:
                 legend(labelList, bbox_to_anchor=(1.12, 0.75), loc='upper right')
             grid(which='both', linestyle=':', linewidth=0.2)
@@ -21455,6 +21627,15 @@ class ThreadAnalyzer(object):
                 # convert label units #
                 ytickLabel = \
                     [SystemManager.convertSize(val << 20) for val in ytickLabel]
+
+                # remove redundant ticks #
+                lastTick = ''
+                tempLabelList = list(ytickLabel)
+                for idx, ytick in enumerate(tempLabelList):
+                    if lastTick == ytick:
+                        ytickLabel[idx] = ''
+                    else:
+                        lastTick = ytick
 
                 ax.set_yticklabels(ytickLabel)
             except:
@@ -24507,12 +24688,18 @@ class ThreadAnalyzer(object):
             try:
                 # ignore special processes #
                 if comm[0] == '[' and comm[2] == ']':
-                    # add die process to list #
+                    # define real comm #
+                    rcomm = comm[3:]
+
+                    # check item #
+                    if rcomm not in ThreadAnalyzer.lifecycleData:
+                        ThreadAnalyzer.lifecycleData[rcomm] = [0] * 4
+                        ThreadAnalyzer.lifecycleData[rcomm][2] = dict()
+                        ThreadAnalyzer.lifecycleData[rcomm][3] = dict()
+
+                    # add died process to list #
                     if comm[1] == '-':
-                        try:
-                            ThreadAnalyzer.lifecycleData[comm[3:]][1] += 1
-                        except:
-                            ThreadAnalyzer.lifecycleData[comm[3:]] = [0, 1]
+                        ThreadAnalyzer.lifecycleData[rcomm][1] += 1
 
                         try:
                             ThreadAnalyzer.procIntData[index-1][pid]['die'] = True
@@ -24520,11 +24707,15 @@ class ThreadAnalyzer(object):
                             ThreadAnalyzer.procIntData[index-1][pid] = \
                                 dict(ThreadAnalyzer.init_procIntData)
                             ThreadAnalyzer.procIntData[index-1][pid]['die'] = True
+                    # add created process to list #
                     elif comm[1] == '+':
-                        try:
-                            ThreadAnalyzer.lifecycleData[comm[3:]][0] += 1
-                        except:
-                            ThreadAnalyzer.lifecycleData[comm[3:]] = [1, 0]
+                        ThreadAnalyzer.lifecycleData[rcomm][0] += 1
+                    # add zomebie process to list #
+                    elif comm[1] == 'Z':
+                        ThreadAnalyzer.lifecycleData[rcomm][2][pid] = 1
+                    # add zomebie process to list #
+                    elif comm[1] == 'T':
+                        ThreadAnalyzer.lifecycleData[rcomm][3][pid] = 1
 
                     return
             except:
@@ -25277,7 +25468,7 @@ class ThreadAnalyzer(object):
 
         # print lifecycle info #
         if SystemManager.processEnable:
-            msg = ' Process Lifecfycle '
+            msg = ' Process Lifecycle '
         else:
             msg = ' Thread Lifecycle '
         stars = '*' * int((int(SystemManager.lineLength) - len(msg)) / 2)
@@ -25306,12 +25497,17 @@ class ThreadAnalyzer(object):
             SystemManager.pipePrint("\n\tNone")
             return
 
-        SystemManager.pipePrint("\n{0:1}\n{1:^16} {2:>15} {3:>15}\n{4:1}\n".\
-            format(twoLine, "Name", "Created", "Terminated", oneLine))
+        SystemManager.pipePrint(\
+            "\n{0:1}\n{1:^16} {2:>15} {3:>15} {4:>15} {5:>15}\n{6:1}\n".\
+            format(twoLine, "Name", "Created", \
+            "Terminated", "Zombie", "Traced", oneLine))
+
         for comm, event in sorted(ThreadAnalyzer.lifecycleData.items(),\
             key=lambda e: e[1][0] + e[1][1], reverse=True):
             SystemManager.pipePrint(\
-                "{0:^16} {1:>15} {2:>15}\n".format(comm, event[0], event[1]))
+                "{0:^16} {1:>15} {2:>15} {3:>15} {4:>15} \n".\
+                format(comm, event[0], event[1], len(event[2]), len(event[3])))
+
         SystemManager.pipePrint(oneLine)
 
 
@@ -30368,6 +30564,26 @@ class ThreadAnalyzer(object):
 
 
 
+    def printDiskUsage(self):
+        if SystemManager.diskEnable is False:
+            return
+        elif SystemManager.uptimeDiff == 0:
+            return
+        elif SystemManager.checkCutCond():
+            return
+
+        # update storage usage #
+        SystemManager.sysInstance.updateStorageInfo()
+
+        # save previous storage data #
+        self.prevStorageData = self.storageData
+
+        # get storage stat #
+        self.storageData = \
+            SystemManager.sysInstance.getStorageInfo()
+
+
+
     def printProcUsage(self):
         def printStackSamples(idx):
             # set indent size including arrow #
@@ -31256,7 +31472,7 @@ class ThreadAnalyzer(object):
                 SystemManager.procBufferSize += len(data)
                 SystemManager.clearPrint()
 
-                while SystemManager.procBufferSize > SystemManager.bufferSize:
+                while SystemManager.procBufferSize > SystemManager.bufferSize > 0:
                     if len(SystemManager.procBuffer) == 1:
                         break
                     SystemManager.procBufferSize -= \
@@ -31299,7 +31515,8 @@ class ThreadAnalyzer(object):
             sys.exit(0)
         except:
             SystemManager.printError(\
-                "Fail to send request '%s'" % SystemManager.remoteServObj.request)
+                "Fail to send request '%s'" % \
+                SystemManager.remoteServObj.request)
 
 
 
@@ -31371,7 +31588,8 @@ class ThreadAnalyzer(object):
                     if not index in SystemManager.addrListForPrint:
                         SystemManager.addrListForPrint[index] = networkObject
                         SystemManager.printInfo(\
-                            "registered %s:%d as remote address for PRINT" % (ip, port))
+                            "registered %s:%d as remote address for PRINT" % \
+                            (ip, port))
                     else:
                         SystemManager.printWarning(\
                             "Duplicated %s:%d as remote address" % (ip, port))
@@ -31379,7 +31597,7 @@ class ThreadAnalyzer(object):
                 elif message == 'REPORT_ALWAYS' or message == 'REPORT_BOUND':
                     if SystemManager.reportEnable is False:
                         SystemManager.printWarning(\
-                            "Ignored %s request from %s:%d because no report service" % \
+                            "Ignored %s request from %s:%d because no service" % \
                             (message, ip, port))
                         networkObject.send("REFUSE")
                         del networkObject
@@ -31391,11 +31609,13 @@ class ThreadAnalyzer(object):
                     if not index in SystemManager.addrListForReport:
                         SystemManager.addrListForReport[index] = networkObject
                         SystemManager.printInfo(\
-                            "registered %s:%d as remote address for REPORT" % (ip, port))
+                            "registered %s:%d as remote address for REPORT" % \
+                            (ip, port))
                     else:
                         SystemManager.addrListForReport[index] = networkObject
                         SystemManager.printInfo(\
-                            "updated %s:%d as remote address for REPORT" % (ip, port))
+                            "updated %s:%d as remote address for REPORT" % \
+                            (ip, port))
 
                 elif message == 'ACK':
                     index = ip + ':' + str(port)
@@ -31426,7 +31646,7 @@ class ThreadAnalyzer(object):
         MEM_PRESSURE
         SWAP_PRESSURE
         IO_INTENSIVE
-        DISK_FULL
+        STORAGE_FULL
         '''
 
         self.reportData['event'] = {}
@@ -31449,13 +31669,15 @@ class ThreadAnalyzer(object):
                 if data['ttime'] > 0:
                     evtdata = self.reportData['cpu']['procs']
 
-                    evtdata[rank] = {}
-                    evtdata[rank]['pid'] = pid
-                    evtdata[rank]['comm'] = data['stat'][self.commIdx][1:-1]
-                    evtdata[rank]['total'] = data['ttime']
-                    evtdata[rank]['user'] = data['utime']
-                    evtdata[rank]['kernel'] = data['stime']
-                    evtdata[rank]['runtime'] = \
+                    pid = long(pid)
+                    evtdata[pid] = {}
+                    evtdata[pid]['pid'] = pid
+                    evtdata[pid]['rank'] = rank
+                    evtdata[pid]['comm'] = data['stat'][self.commIdx][1:-1]
+                    evtdata[pid]['total'] = data['ttime']
+                    evtdata[pid]['user'] = data['utime']
+                    evtdata[pid]['kernel'] = data['stime']
+                    evtdata[pid]['runtime'] = \
                         SystemManager.convertTime(\
                         data['runtime']).replace(' ', '')
 
@@ -31484,23 +31706,25 @@ class ThreadAnalyzer(object):
 
                     evtdata = self.reportData['mem']['procs']
 
-                    evtdata[rank] = {}
-                    evtdata[rank]['pid'] = pid
-                    evtdata[rank]['comm'] = data['stat'][self.commIdx][1:-1]
-                    evtdata[rank]['rss'] = rss
-                    evtdata[rank]['text'] = text
-                    evtdata[rank]['runtime'] = \
+                    pid = long(pid)
+                    evtdata[pid] = {}
+                    evtdata[pid]['pid'] = pid
+                    evtdata[pid]['rank'] = rank
+                    evtdata[pid]['comm'] = data['stat'][self.commIdx][1:-1]
+                    evtdata[pid]['rss'] = rss
+                    evtdata[pid]['text'] = text
+                    evtdata[pid]['runtime'] = \
                         SystemManager.convertTime(\
                         data['runtime']).replace(' ', '')
 
                     try:
-                        self.reportData['mem']['procs'][rank]['swap'] = \
+                        self.reportData['mem']['procs'][pid]['swap'] = \
                             long(data['status']['VmSwap'].split()[0]) >> 10
                     except:
                         pass
 
                     try:
-                        self.reportData['mem']['procs'][rank]['shared'] = \
+                        self.reportData['mem']['procs'][pid]['shared'] = \
                             long(data['statm'][self.shrIdx]) >> 8
                     except:
                         pass
@@ -31538,11 +31762,13 @@ class ThreadAnalyzer(object):
                 if data['btime'] > 0:
                     evtdata = self.reportData['block']['procs']
 
-                    evtdata[rank] = {}
-                    evtdata[rank]['pid'] = pid
-                    evtdata[rank]['comm'] = data['stat'][self.commIdx][1:-1]
-                    evtdata[rank]['iowait'] = data['btime']
-                    evtdata[rank]['runtime'] = \
+                    pid = long(pid)
+                    evtdata[pid] = {}
+                    evtdata[pid]['pid'] = long(pid)
+                    evtdata[pid]['rank'] = rank
+                    evtdata[pid]['comm'] = data['stat'][self.commIdx][1:-1]
+                    evtdata[pid]['iowait'] = data['btime']
+                    evtdata[pid]['runtime'] = \
                         SystemManager.convertTime(\
                         data['runtime']).replace(' ', '')
 
@@ -31553,6 +31779,13 @@ class ThreadAnalyzer(object):
             if rb['block']['ioWait'] <= self.reportData['block']['ioWait']:
                 self.reportData['event']['IO_INTENSIVE'] = \
                     self.reportData['block']['procs']
+
+        # analyze storage status #
+        if 'storage' in self.reportData:
+            if rb['storage']['total'] <= \
+                self.reportData['storage']['total']['usageper']:
+                self.reportData['event']['STORAGE_FULL'] = \
+                    self.reportData['storage']
 
         # analyze system status #
         if 'system' in self.reportData:
@@ -31698,6 +31931,9 @@ class ThreadAnalyzer(object):
             if len(perfString) > 0:
                 SystemManager.addPrint("%s %s\n" % (' ' * nrIndent, perfString))
 
+        # print disk stat #
+        self.printDiskUsage()
+
         # print system stat #
         self.printSystemUsage()
 
@@ -31799,8 +32035,8 @@ if __name__ == '__main__':
             SystemManager.setPriority(SystemManager.pid, 'C', -20)
 
         SystemManager.parseRecordOption()
-        SystemManager.printRecordOption()
-        SystemManager.printRecordCmd()
+        SystemManager.printProfileOption()
+        SystemManager.printProfileCmd()
 
         # run in background #
         if SystemManager.backgroundEnable:
@@ -31912,7 +32148,8 @@ if __name__ == '__main__':
                         SystemManager.outputFile)
                 else:
                     SystemManager.printError(\
-                        "wrong option with -e + p, use also -s option to save data")
+                        "wrong option with -e + p, "
+                        "use also -s option to save data")
 
                 sys.exit(0)
 
@@ -32060,31 +32297,54 @@ if __name__ == '__main__':
 
     #-------------------- REALTIME MODE --------------------
     if SystemManager.isTopMode():
-        # select top mode #
+
+        # thread #
         if SystemManager.isThreadTopMode():
             SystemManager.processEnable = False
+
+        # file #
         elif SystemManager.isFileTopMode():
             SystemManager.fileTopEnable = True
+
+        # stack #
         elif SystemManager.isStackTopMode():
             if SystemManager.checkStackTopCond():
                 SystemManager.processEnable = False
                 SystemManager.stackEnable = True
             else:
                 sys.exit(0)
+
+        # perf #
         elif SystemManager.isPerfTopMode():
             if SystemManager.checkPerfTopCond():
                 SystemManager.perfGroupEnable = True
             else:
                 sys.exit(0)
+
+        # mem #
         elif SystemManager.isMemTopMode():
             if SystemManager.checkMemTopCond():
                 SystemManager.memEnable = True
+                SystemManager.sort = 'm'
             else:
                 sys.exit(0)
 
-        # print record option #
-        SystemManager.printRecordOption()
-        SystemManager.printRecordCmd()
+        # wss (working set size) #
+        elif SystemManager.isWssTopMode():
+            if SystemManager.checkWssTopCond():
+                SystemManager.memEnable = True
+                SystemManager.wssEnable = True
+                SystemManager.sort = 'm'
+            else:
+                sys.exit(0)
+
+        # disk #
+        elif SystemManager.isDiskTopMode():
+            SystemManager.diskEnable = True
+
+        # print profile option #
+        SystemManager.printProfileOption()
+        SystemManager.printProfileCmd()
 
         # set handler for exit #
         if sys.platform.startswith('linux'):
@@ -32095,7 +32355,7 @@ if __name__ == '__main__':
         if SystemManager.backgroundEnable:
             SystemManager.runBackgroundMode()
 
-        # create ThreadAnalyzer using proc #
+        # run top mode #
         ThreadAnalyzer(None)
 
         sys.exit(0)
